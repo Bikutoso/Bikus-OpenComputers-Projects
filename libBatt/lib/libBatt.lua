@@ -86,11 +86,11 @@ end
 
 function battery.getUnit(addr)
   if convertPowerType ~= nil then
-    return convertPowerType.."/t"
+    return convertPowerType
   end
 
   local _, addr = selectBattery(addr)
-  return battery.list[addr].."/t"
+  return battery.list[addr]
   
 end
 
@@ -99,10 +99,10 @@ function battery.setPrimary(addr)
     battery.address = addr
     manualAddress = true
   elseif addr == nil then
-    --Doesn't set a new address but allow a new one to be slected on refresh
     manualAddress = false
+    battery.refresh()
   end
-  return battery.address, addr
+  return battery.address
 end
 
 function battery.getEnergyStored(addr, side)
