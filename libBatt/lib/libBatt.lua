@@ -4,6 +4,7 @@ local component = require("component")
 battery.list = {}
 battery.address = nil
 local manualAddress = false
+local convertPowerType = nil
 
 local getEnergyStoredMethods = {
   RF = "getEnergyStored",
@@ -32,6 +33,18 @@ local function selectBattery(addr)
   end
   
   return proxy, addr
+end
+
+local function convertPower(addr, power)
+  if convertPowerType == nil then return power end
+
+  if convertPowerType == "EU" and battery.list[addr] == "RF" then
+    return power / 4
+  elseif convertPowerType == "RF" and battery.list[addr] == "EU" then
+    return power * 4
+  end
+
+  error("Unable to convert to type: "..convertPowerType)
 end
 
 function battery.refresh()
@@ -64,6 +77,13 @@ function battery.refresh()
   return battery.address
 end
 
+function battery.convert(type)
+  if type == "RF" then convertPowerType = "RF"
+  elseif type == "EU" then convertPowerType = "EU"
+  else convertPowerType = nil end
+  return convertPowerType
+end
+
 function battery.setPrimary(addr)
   if battery.list[addr] ~= nil then
     battery.address = addr
@@ -75,20 +95,22 @@ function battery.setPrimary(addr)
   return battery.address, addr
 end
 
-function battery.getEnergyStored(addr)
+function battery.getEnergyStored(addr, side)
   local proxy, addr = selectBattery(addr)
-  local power = proxy[getEnergyStoredMethods[battery.list[addr]]]()
-  return power
+  local power = proxy[getEnergyStoredMethods[battery.list[addr]]](side)
+  return convertPower(addr, power)
 end
 
-function battery.getMaxEnergyStored(addr)
+function battery.getMaxEnergyStored(addr, side)
   local proxy, addr = selectBattery(addr)
-  local power = proxy[getMaxEnergyStoredMethods[battery.list[addr]]]()
-  return power
+  local power = proxy[getMaxEnergyStoredMethods[battery.list[addr]]](side)
+  return convertPower(addr, power)
 end
 
 function battery.getSinkTier(addr)
   local proxy, addr = selectBattery(addr)
+
+  --default to 0 if a RF based compoment
   if battery.list[addr] == "RF" then return 0 end
 
   local tier = proxy.getSinkTier()
