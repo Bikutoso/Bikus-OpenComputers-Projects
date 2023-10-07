@@ -1,0 +1,58 @@
+NAME
+  libBatt - library to inreact with batteries
+
+FUNCTIONS
+  list()
+    Returns a list of all batteries.
+
+  address()
+    Return the current default battery.
+
+  refresh()
+    Rebuilds list of all batteries and sets a default battery (unless setPrimary is set).
+
+  convert(type)
+    Type (RF/EU) set the default power unit to show in other fucntions.
+
+  getUnit(address)
+    Returns the power type of the selected battery or default battery if no address is selected.
+
+  setPrimary(address)
+    Overrides the default battery type the selected one or clear battery if no address is selected.
+    NOTE: clearing won't update the default selected battery untill next refresh.
+
+  getEnergyStored(address, side)
+    Returns the current value of the battery, if a convert value is set then it's converted to that type.
+    If no address is slected it uses the default battery.
+    Unsure what side does other than being RF related, it's safe to ignore this value.
+
+  getEnergyMaxStored(address, side)
+    Returns the maximum value of the battery, if a convert value is set then it's convert to that type.
+    If no address is selected it uses the default battery.
+
+  getSinkTier(address)
+   Returns the IC2 sink tier, if a RF based battery 0 will be returned.
+   If no address is selected is unless the default battery.
+
+EXAMPLE
+  Display power and capacity from a IC2 battery in RF based units
+    batt = require("libBatt")
+    
+    batt.convert("RF")
+
+    currentPower = batt.getEnergyStored()
+    maxPower = batt.getEnergyMaxStored()
+    unit = batt.getUnit()
+
+    print(currentPower..maxPower.." "..unit
+
+  Set the default battery and show current power
+    batt = require("libBatt")
+    
+    batt.setPrimary("ce821283-ba35-4401-8bb5-ff53d51e043a")
+    print(batt.getEnergyStored()
+
+  Get the power of a battery without setting default battery
+    batt = require("libBatt")
+
+    print(batt.getEnergyStored("ce821283-ba35-4401-8bb5-ff53d51e043a")
