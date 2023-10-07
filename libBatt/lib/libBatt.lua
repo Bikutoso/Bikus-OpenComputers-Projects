@@ -84,6 +84,16 @@ function battery.convert(type)
   return convertPowerType
 end
 
+function battery.getUnit(addr)
+  if convertPowerType ~= nil then
+    return convertPowerType.."/t"
+  end
+
+  local _, addr = selectBattery(addr)
+  return battery.list[addr].."/t"
+  
+end
+
 function battery.setPrimary(addr)
   if battery.list[addr] ~= nil then
     battery.address = addr
