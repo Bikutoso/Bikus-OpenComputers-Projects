@@ -25,9 +25,9 @@ local function selectBattery(addr)
   local proxy = component.proxy(addr)
   --Components could be out of date refresh
   if not manAddr and proxy == nil then
-    battery.refresh()
+    addr = battery.refresh()
     proxy = component.proxy(addr)
-  elseif manAddr and proxy == nil then
+  elseif proxy == nil then
     error("Invalid address: "..addr)
   end
   
@@ -80,10 +80,19 @@ function battery.getEnergyStored(addr)
   local power = proxy[getEnergyStoredMethods[battery.list[addr]]]()
   return power
 end
+
 function battery.getMaxEnergyStored(addr)
   local proxy, addr = selectBattery(addr)
   local power = proxy[getMaxEnergyStoredMethods[battery.list[addr]]]()
   return power
+end
+
+function battery.getSinkTier(addr)
+  local proxy, addr = selectBattery(addr)
+  if battery.list[addr] == "RF" then return 0 end
+
+  local tier = proxy.getSinkTier()
+  return tier
 end
 
 battery.refresh()
