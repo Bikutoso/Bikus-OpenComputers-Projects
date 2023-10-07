@@ -1,8 +1,8 @@
 local battery  = {}
 local component = require("component")
 
-local battery.list = {}
-local battery.address = nil
+list = {}
+address = nil
 local manualAddress = false
 local convertPowerType = nil
 
@@ -45,14 +45,6 @@ local function convertPower(addr, power)
   end
 
   error("Unable to convert to type: "..convertPowerType)
-end
-
-function list()
-  return battery.list
-end
-
-function address()
-  return battery.address
 end
 
 function battery.refresh()

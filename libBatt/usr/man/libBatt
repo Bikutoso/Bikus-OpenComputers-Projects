@@ -2,12 +2,6 @@ NAME
   libBatt - library to inreact with batteries
 
 FUNCTIONS
-  list()
-    Returns a list of all batteries.
-
-  address()
-    Return the current default battery.
-
   refresh()
     Rebuilds list of all batteries and sets a default battery (unless setPrimary is set).
 
@@ -33,6 +27,15 @@ FUNCTIONS
   getSinkTier(address)
    Returns the IC2 sink tier, if a RF based battery 0 will be returned.
    If no address is selected is unless the default battery.
+
+VARIABLES
+  list
+    List of all batteries that have been detected
+    NOTE: Please do not edit
+
+  address
+    The address of the battery that is currently set as default
+    NOTE: Plase do not edit
 
 EXAMPLE
   Display power and capacity from a IC2 battery in RF based units
