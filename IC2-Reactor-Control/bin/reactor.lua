@@ -1,44 +1,40 @@
 local component = require("component")
-local sides = require("sides")
-local colors = require("colors")
-local os = require("os")
+local batt = require("libBatt")
 local math = require("math")
+local os = require("os")
+local sides = require("sides")
 
---
--- Config
---
-
--- Reactor Redstone
-local cfgRedAddr = "1cfe82dc-4a53-4f58-b311-0b21ef815135"
-local cfgRedSide = sides.left
--- Reactor Controller
-local cfgRecUpLimit = 0.2
-local cfgRecOverheatProtect = true
-local cfgRecOverheatMaxCount = 4
--- Battery
--- 
-local cfgBatComponent = "energy_device"
-local cfgBatType = "RF" -- IC2, RF
-local cfgBatUpLimit = 0.9
-local cfgBatLowLimt= 0.1
+-- This is early due to how early configs are set
+local function loadCFG()
+  local env = {}
+  local result, reason = loadfile("/etc/reactor.cfg", "t", env)
+  if result then
+    result, reason = xpcall(result, debug.traceback)
+    if result then
+      return env
+    end
+  end
+  return nil, reason
+end
 
 --
 -- Setup Components
 --
+local env = loadCFG()
 local gpu = component.gpu
-local cmpRedstone = component.proxy(cfgRedAddr)
-local cmpReactor = component.reactor
-local cmpBattery = component[cfgBatComponent]
+local cmpRedstone = component.proxy(env.redstoneAddress)
+if cmpRedstone == nil then error("Invalid or missing redstone I/O") end
 
-if cfgBatType == "IC2" then
-  --print("IC")
-  cmpBatteryStored = "getEnergy"
-  cmpBatteryMax = "getCapacity"
-elseif cfgBatType == "RF" then
-  --print("RF")
-  cmpBatteryStored = "getEnergyStored"
-  cmpBatteryMax = "getMaxEnergyStored"
+local cmpReactor = nil
+if component.isAvailable("reactor") then
+  cmpReactor = component.reactor
+elseif component.isAvailable("reactor_chamber") then
+  cmpReactor = component.reactor_chamber
+else
+  error("No reactors found")
 end
+
+batt.convert("RF")
 
 --
 -- Variables
@@ -49,20 +45,20 @@ local recHotCount = 0
 local recFlop = false
 local recCur = 0
 local recMax = cmpReactor.getMaxHeat()
-local recLimit = math.floor(recMax * cfgRecUpLimit)
+local recLimit = math.floor(recMax * env.reactorUpperLimit)
 local recLow = math.floor(recMax * 0.01)
 local recOutput = 0
 local batFull = false
 local batCur = 0
-local batMax = cmpBattery[cmpBatteryMax]()
-local batUpper = math.floor(batMax * cfgBatUpLimit)
-local batLower = math.floor(batMax * cfgBatLowLimt)
+local batMax = batt.getMaxEnergyStored()
+local batUpper = math.floor(batMax * env.batteryUpperLimit)
+local batLower = math.floor(batMax * env.batteryLowerLimit)
 local termWidth, termHeight = gpu.getResolution()
 
 local function initScreen ()
   gpu.fill(1, 1, termWidth, termHeight, " ")
-  gpu.setForeground(colors.white, true)
-  gpu.setBackground(colors.black, true)
+  gpu.setForeground(0xFFFFFF)
+  gpu.setBackground(0x000000)
   
   gpu.set(1,2, "IC2 Reactor Control (by Bikutoso)")
   
@@ -76,54 +72,56 @@ local function initScreen ()
   gpu.set(1,10, "Battery: 0/0 (High: 0, Low: 0)")
 end
 
-local function updateScreen ()
+local function updateScreen()
   --clear screen
   gpu.fill(10, 4, termWidth, 7, " ")
   --gpu.fill(10, 10, termWidth, 1, "%")
 
   local status = "Unknown"
   if recHot then
-    gpu.setForeground(colors.yellow, true)
-    gpu.setBackground(colors.red, true)
+    gpu.setForeground(0xFFFF00)
+    gpu.setBackground(0xFF0000)
     status = "Stopped (Thermal Overload)"
   elseif batFull then
-    gpu.setForeground(colors.yellow, true)
+    gpu.setForeground(0xFFFF00)
     status = "Stopped (Battery Full)"
   elseif recRunning then
-    gpu.setForeground(colors.green, true)
+    gpu.setForeground(0x00FF00)
     status = "Running"
   end
   gpu.set(10,4, status)
-  gpu.setBackground(colors.black, true)
-  gpu.setForeground(colors.white, true)
+  gpu.setForeground(0xFFFFFF)
+  gpu.setBackground(0x000000)
 
   local safety = "Unknown"
-  if cfgRecOverheatProtect then
-    if recHotCount >= cfgRecOverheatMaxCount - 2 then
-      gpu.setForeground(colors.red, true)
+  if env.reactorOverheatProtection then
+    if recHotCount >= env.reactorOverheatMaxCount - 2 then
+      gpu.setForeground(0xFF0000)
     end
-    safety = recHotCount.."/"..cfgRecOverheatMaxCount
+    safety = recHotCount.."/"..env.reactorOverheatMaxCount
   else
-    gpu.setForeground(colors.red, true)
+    gpu.setForeground(0xFF0000)
     safety = "Disabled"
   end
   gpu.set(10,5, safety)
-  gpu.setForeground(colors.white, true)
+  gpu.setForeground(0xFFFFFF)
   
-  local heat = recCur.."/"..recMax.." (Limit: "..recLimit..")"
+  local heat = format_thousand(recCur).."/"..format_thousand(recMax)
+  .." (Limit: "..format_thousand(recLimit)..")"
   gpu.set(10,7, heat)
   
-  local output = recOutput.." EU/t"
+  local output = format_thousand(recOutput).." RF/t"
   gpu.set(10,8, output)
   
-  local bat = math.floor(batCur).."/"..math.floor(batMax).." (High: "..batUpper..",  Low: "..batLower..")"
+  local bat = format_thousand(batCur).."/"..format_thousand(batMax)
+  .." RF (High: "..format_thousand(batUpper)..",  Low: "..format_thousand(batLower)..")"
   gpu.set(10,10, bat)
 end
 
-local function RecError (msg)
-  cmpRedstone.setOutput(cfgRedSide, 0)
+local function RecError(msg)
+  cmpRedstone.setOutput(sides[env.redstoneSide], 0)
   recRunning = false
-  
+
   gpu.setBackground(colors.red, true)
   gpu.setForeground(colors.yellow, true)
   print("===CRITICAL===")
@@ -133,22 +131,31 @@ local function RecError (msg)
   os.exit(1)
 end
 
-local function checkHeat ()
+function format_thousand(v)
+  --https://www.computercraft.info/forums2/index.php?/topic/8065-lua-thousand-separator/
+  local s = string.format("%d", math.floor(v))
+  local pos = string.len(s) % 3
+  if pos == 0 then pos = 3 end
+  return string.sub(s, 1, pos)
+  .. string.gsub(string.sub(s, pos+1), "(...)", ",%1")
+end
+
+local function checkHeat()
   recCur = cmpReactor.getHeat()
   
   if recCur > math.floor(recMax * 0.8) then -- Reactor Hard Limit
     RecError("Reactor temperature "..recCur.."/"..recMax)
   elseif recCur > recLimit and recRunning then -- Reactor Soft Limit
-    cmpRedstone.setOutput(cfgRedSide, 0)
+    cmpRedstone.setOutput(sides[env.redstoneSide], 0)
     if recRunning then
     end
     recRunning = false
     recHot = true
 
     -- Overheat Protection (if enabled)
-    if cfgRecOverheatProtect and recHotCount >= cfgRecOverheatMaxCount - 1 then
+    if env.reactorOverheatProtection and recHotCount >= env.reactorOverheatMaxCount - 1 then
       RecError("Abnormal temperature. Shutting down for safety")
-    elseif cfgRecOverheatProtect then
+    elseif env.reactorOverheatProtection then
       recHotCount = recHotCount + 1
     end
   elseif recHot and recCur < recLow then -- Reactor Cooled off
@@ -156,8 +163,8 @@ local function checkHeat ()
   end
 end
 
-local function checkBatt ()
-  batCur = cmpBattery[cmpBatteryStored]()
+local function checkBatt()
+  batCur = batt.getEnergyStored()
   if not batFull and batCur > batUpper then -- Battery High
     recRunning = false
     batFull = true
@@ -166,13 +173,13 @@ local function checkBatt ()
   end
 end
 
-local function flopReactor ()
+local function flopReactor()
   recFlop = not recFlop
-  cmpRedstone.setOutput(cfgRedSide, recFlop and 15 or 0)
+  cmpRedstone.setOutput(sides[env.redstoneSide], recFlop and 15 or 0)
 end
 
 -- Reset redstone to a default state
-cmpRedstone.setOutput(cfgRedSide, 0)
+cmpRedstone.setOutput(sides[env.redstoneSide], 0)
 
 initScreen()
 while true do
@@ -188,7 +195,7 @@ while true do
     flopReactor()
   end
 
-  recOutput = cmpReactor.getReactorEUOutput()
+  recOutput = cmpReactor.getReactorEUOutput() * 4
 
   updateScreen()
   os.sleep(0.1)
