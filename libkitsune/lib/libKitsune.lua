@@ -1,9 +1,9 @@
 local math = require("math")
 
-api = {}
+local kitsune = {}
 
 -- OpenComputers Code
-function api.loadConfig(filename)
+function kitsune.loadConfig(filename)
   checkArg(1, filename, "string")
   local env = {}
   local result, reason = loadfile(filename, "t", env)
@@ -17,12 +17,11 @@ function api.loadConfig(filename)
 end
 
 --https://www.computercraft.info/forums2/index.php?/topic/8065-lua-thousand-separator
-function api.format_thousand(value)
+function kitsune.format_thousand(value)
   local s = string.format("%d", math.floor(value))
   local pos = string.len(s) % 3
   if pos == 0 then pos = 3 end
-  return string.sub(s, 1, pos)
-  .. string.gsub(string.sub(s, pos+1), "(...)", ",%1")
+  return string.sub(s, 1, pos)..string.gsub(string.sub(s, pos+1), "(...)", ",%1")
 end
 
-return api
+return kitsune
