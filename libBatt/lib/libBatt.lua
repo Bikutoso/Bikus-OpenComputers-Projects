@@ -36,15 +36,13 @@ local function selectBattery(addr)
 end
 
 local function convertPower(addr, power)
-  if convertPowerType == nil then return power end
-
   if convertPowerType == "EU" and battery.list[addr] == "RF" then
     return power / 4
   elseif convertPowerType == "RF" and battery.list[addr] == "EU" then
     return power * 4
   end
 
-  error("Unable to convert to type: "..convertPowerType)
+  return power
 end
 
 function battery.refresh()
