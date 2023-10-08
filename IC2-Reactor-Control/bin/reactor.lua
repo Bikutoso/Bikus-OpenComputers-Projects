@@ -1,26 +1,14 @@
 local component = require("component")
 local batt = require("libBatt")
+local misc = require("libKitsune")
 local math = require("math")
 local os = require("os")
 local sides = require("sides")
 
--- This is early due to how early configs are set
-local function loadCFG()
-  local env = {}
-  local result, reason = loadfile("/etc/reactor.cfg", "t", env)
-  if result then
-    result, reason = xpcall(result, debug.traceback)
-    if result then
-      return env
-    end
-  end
-  return nil, reason
-end
-
 --
 -- Setup Components
 --
-local env = loadCFG()
+local env = misc.loadConfig("/etc/reactor.cfg")
 local gpu = component.gpu
 local cmpRedstone = component.proxy(env.redstoneAddress)
 if cmpRedstone == nil then error("Invalid or missing redstone I/O") end
@@ -106,15 +94,15 @@ local function updateScreen()
   gpu.set(10,5, safety)
   gpu.setForeground(0xFFFFFF)
   
-  local heat = format_thousand(recCur).."/"..format_thousand(recMax)
-  .." (Limit: "..format_thousand(recLimit)..")"
+  local heat = misc.format_thousand(recCur).."/"..misc.format_thousand(recMax)
+  .." (Limit: "..misc.format_thousand(recLimit)..")"
   gpu.set(10,7, heat)
   
-  local output = format_thousand(recOutput).." RF/t"
+  local output = misc.format_thousand(recOutput).." RF/t"
   gpu.set(10,8, output)
   
-  local bat = format_thousand(batCur).."/"..format_thousand(batMax)
-  .." RF (High: "..format_thousand(batUpper)..",  Low: "..format_thousand(batLower)..")"
+  local bat = misc.format_thousand(batCur).."/"..misc.format_thousand(batMax)
+  .." RF (High: "..misc.format_thousand(batUpper)..",  Low: "..misc.format_thousand(batLower)..")"
   gpu.set(10,10, bat)
 end
 
@@ -129,15 +117,6 @@ local function RecError(msg)
   print("Reason: "..msg)
 
   os.exit(1)
-end
-
-function format_thousand(v)
-  --https://www.computercraft.info/forums2/index.php?/topic/8065-lua-thousand-separator/
-  local s = string.format("%d", math.floor(v))
-  local pos = string.len(s) % 3
-  if pos == 0 then pos = 3 end
-  return string.sub(s, 1, pos)
-  .. string.gsub(string.sub(s, pos+1), "(...)", ",%1")
 end
 
 local function checkHeat()
