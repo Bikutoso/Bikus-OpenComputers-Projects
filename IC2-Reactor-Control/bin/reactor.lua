@@ -42,11 +42,14 @@ local reactor = {
     count = 0
   }
 }
-local batFull = false
-local batCur = 0
-local batMax = batt.getMaxEnergyStored()
-local batUpper = math.floor(batMax * env.batteryUpperLimit)
-local batLower = math.floor(batMax * env.batteryLowerLimit)
+
+local battery = {
+  current = 0,
+  max = batt.getMaxEnergyStored(),
+  high = batt.getMaxEnergyStored() * env.batteryUpperLimit,
+  low = batt.getMaxEnergyStored() * env.batteryLowerLimit
+}
+
 local termWidth, termHeight = gpu.getResolution()
 
 local function initScreen ()
@@ -110,8 +113,8 @@ local function updateScreen()
   local output = misc.format_thousand(reactor.output).." RF/t"
   gpu.set(10,8, output)
   
-  local bat = misc.format_thousand(batCur).."/"..misc.format_thousand(batMax)
-  .." RF (High: "..misc.format_thousand(batUpper)..",  Low: "..misc.format_thousand(batLower)..")"
+  local bat = misc.format_thousand(battery.current).."/"..misc.format_thousand(battery.max)
+  .." RF (High: "..misc.format_thousand(battery.high)..",  Low: "..misc.format_thousand(battery.low)..")"
   gpu.set(10,10, bat)
 end
 
@@ -154,10 +157,10 @@ local function checkHeat()
 end
 
 local function checkBatt()
-  batCur = batt.getEnergyStored()
-  if reactor.state == "Running" and batCur > batUpper then -- Battery High
+  battery.current = batt.getEnergyStored()
+  if reactor.state == "Running" and battery.current > battery.high then -- Battery High
     reactor.state = "Batt"
-  elseif reactor.state == "Batt" and batCur < batLower then -- Battery Low
+  elseif reactor.state == "Batt" and battery.current < battery.low then -- Battery Low
     reactor.state = "Running"
   end
 end
