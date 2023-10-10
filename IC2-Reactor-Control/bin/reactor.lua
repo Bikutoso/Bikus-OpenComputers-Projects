@@ -27,8 +27,7 @@ batt.convert("RF")
 --
 -- Variables
 --
-local recRunning = false
-local recHot = false
+local state = "Stopped"
 local recHotCount = 0
 local recFlop = false
 local recCur = 0
@@ -66,16 +65,19 @@ local function updateScreen()
   --gpu.fill(10, 10, termWidth, 1, "%")
 
   local status = "Unknown"
-  if recHot then
+  if state == "Hot" then
     gpu.setForeground(0xFFFF00)
     gpu.setBackground(0xFF0000)
     status = "Stopped (Thermal Overload)"
-  elseif batFull then
+  elseif state == "Batt" then
     gpu.setForeground(0xFFFF00)
     status = "Stopped (Battery Full)"
-  elseif recRunning then
+  elseif state == "Running" then
     gpu.setForeground(0x00FF00)
     status = "Running"
+  else
+    gpu.setForeground(0xFFFF00)
+    status = "Stopped"
   end
   gpu.set(10,4, status)
   gpu.setForeground(0xFFFFFF)
@@ -110,8 +112,8 @@ local function RecError(msg)
   cmpRedstone.setOutput(sides[env.redstoneSide], 0)
   recRunning = false
 
-  gpu.setBackground(colors.red, true)
-  gpu.setForeground(colors.yellow, true)
+  gpu.setBackground(0xFF0000)
+  gpu.setForeground(0xFFFF00)
   print("===CRITICAL===")
   print("Reactor Shutdown!!")
   print("Reason: "..msg)
@@ -119,36 +121,37 @@ local function RecError(msg)
   os.exit(1)
 end
 
+local function increaseProtect()
+  recHotCount = recHotCount + 1
+  
+  if recHotCount >= env.reactorOverheatMaxCount then
+    RecError("Abnormal temperature. Shutdown down for safety")
+  end
+end
+
 local function checkHeat()
   recCur = cmpReactor.getHeat()
+
   
   if recCur > math.floor(recMax * 0.8) then -- Reactor Hard Limit
     RecError("Reactor temperature "..recCur.."/"..recMax)
-  elseif recCur > recLimit and recRunning then -- Reactor Soft Limit
+  elseif state == "Running" and recCur > recLimit then -- Reactor Soft Limit
     cmpRedstone.setOutput(sides[env.redstoneSide], 0)
-    if recRunning then
-    end
-    recRunning = false
-    recHot = true
-
+    state = "Hot"
     -- Overheat Protection (if enabled)
-    if env.reactorOverheatProtection and recHotCount >= env.reactorOverheatMaxCount - 1 then
-      RecError("Abnormal temperature. Shutting down for safety")
-    elseif env.reactorOverheatProtection then
-      recHotCount = recHotCount + 1
-    end
-  elseif recHot and recCur < recLow then -- Reactor Cooled off
-      recHot = false
+    if env.reactorOverheatProtection then increaseProtect() end
+  elseif status == "Hot" and recCur < recLow then
+    state = "Running"
   end
+
 end
 
 local function checkBatt()
   batCur = batt.getEnergyStored()
-  if not batFull and batCur > batUpper then -- Battery High
-    recRunning = false
-    batFull = true
-  elseif batFull and batCur < batLower then -- Battery Low
-    batFull = false
+  if state == "Running" and batCur > batUpper then -- Battery High
+    state = "Batt"
+  elseif state == "Batt" and batCur < batLower then -- Battery Low
+    state = "Running"
   end
 end
 
@@ -161,16 +164,14 @@ end
 cmpRedstone.setOutput(sides[env.redstoneSide], 0)
 
 initScreen()
+--state = "Running"
 while true do
 
   checkHeat()
   checkBatt()
  
   -- Startup
-  if not recHot and not batFull then
-    if not recRunning then
-      recRunning = true
-    end
+  if state == "Running" then
     flopReactor()
   end
 
