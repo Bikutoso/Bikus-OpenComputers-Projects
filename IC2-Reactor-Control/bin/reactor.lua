@@ -27,14 +27,21 @@ batt.convert("RF")
 --
 -- Variables
 --
-local state = "Stopped"
-local recHotCount = 0
-local recFlop = false
-local recCur = 0
-local recMax = cmpReactor.getMaxHeat()
-local recLimit = math.floor(recMax * env.reactorUpperLimit)
-local recLow = math.floor(recMax * 0.01)
-local recOutput = 0
+local reactor = {
+  state = "Stopped",
+  tick = false,
+  output = 0,
+  heat = {
+    current = 0,
+    max = cmpReactor.getMaxHeat(),
+    critical = cmpReactor.getMaxHeat() * env.reactorCriticalLimit,
+    limit = cmpReactor.getMaxHeat() * env.reactorUpperLimit,
+    low = cmpReactor.getMaxHeat() * env.batteryLowerLimit
+  },
+  protect = {
+    count = 0
+  }
+}
 local batFull = false
 local batCur = 0
 local batMax = batt.getMaxEnergyStored()
@@ -65,14 +72,14 @@ local function updateScreen()
   --gpu.fill(10, 10, termWidth, 1, "%")
 
   local status = "Unknown"
-  if state == "Hot" then
+  if reactor.state == "Hot" then
     gpu.setForeground(0xFFFF00)
     gpu.setBackground(0xFF0000)
     status = "Stopped (Thermal Overload)"
-  elseif state == "Batt" then
+  elseif reactor.state == "Batt" then
     gpu.setForeground(0xFFFF00)
     status = "Stopped (Battery Full)"
-  elseif state == "Running" then
+  elseif reactor.state == "Running" then
     gpu.setForeground(0x00FF00)
     status = "Running"
   else
@@ -85,10 +92,10 @@ local function updateScreen()
 
   local safety = "Unknown"
   if env.reactorOverheatProtection then
-    if recHotCount >= env.reactorOverheatMaxCount - 2 then
+    if reactor.protect.count >= env.reactorOverheatMaxCount - 2 then
       gpu.setForeground(0xFF0000)
     end
-    safety = recHotCount.."/"..env.reactorOverheatMaxCount
+    safety = reactor.protect.count.."/"..env.reactorOverheatMaxCount
   else
     gpu.setForeground(0xFF0000)
     safety = "Disabled"
@@ -96,11 +103,11 @@ local function updateScreen()
   gpu.set(10,5, safety)
   gpu.setForeground(0xFFFFFF)
   
-  local heat = misc.format_thousand(recCur).."/"..misc.format_thousand(recMax)
-  .." (Limit: "..misc.format_thousand(recLimit)..")"
+  local heat = misc.format_thousand(reactor.heat.current).."/"..misc.format_thousand(reactor.heat.max)
+  .." (Limit: "..misc.format_thousand(reactor.heat.limit)..")"
   gpu.set(10,7, heat)
   
-  local output = misc.format_thousand(recOutput).." RF/t"
+  local output = misc.format_thousand(reactor.output).." RF/t"
   gpu.set(10,8, output)
   
   local bat = misc.format_thousand(batCur).."/"..misc.format_thousand(batMax)
@@ -110,7 +117,7 @@ end
 
 local function RecError(msg)
   cmpRedstone.setOutput(sides[env.redstoneSide], 0)
-  recRunning = false
+  reactor.state = "Critical"
 
   gpu.setBackground(0xFF0000)
   gpu.setForeground(0xFFFF00)
@@ -122,60 +129,60 @@ local function RecError(msg)
 end
 
 local function increaseProtect()
-  recHotCount = recHotCount + 1
+  reactor.protect.count = reactor.protect.count + 1
   
-  if recHotCount >= env.reactorOverheatMaxCount then
+  if reactor.protect.count >= env.reactorOverheatMaxCount then
     RecError("Abnormal temperature. Shutdown down for safety")
   end
 end
 
 local function checkHeat()
-  recCur = cmpReactor.getHeat()
+  reactor.heat.current = cmpReactor.getHeat()
 
   
-  if recCur > math.floor(recMax * 0.8) then -- Reactor Hard Limit
-    RecError("Reactor temperature "..recCur.."/"..recMax)
-  elseif state == "Running" and recCur > recLimit then -- Reactor Soft Limit
+  if reactor.heat.current > reactor.heat.critical then -- Reactor Hard Limit
+    RecError("Reactor temperature "..reactor.heat.current.."/"..reactor.heat.max)
+  elseif reactor.state == "Running" and reactor.heat.current > reactor.heat.limit then -- Reactor Soft Limit
     cmpRedstone.setOutput(sides[env.redstoneSide], 0)
-    state = "Hot"
+    reactor.state = "Hot"
     -- Overheat Protection (if enabled)
     if env.reactorOverheatProtection then increaseProtect() end
-  elseif status == "Hot" and recCur < recLow then
-    state = "Running"
+  elseif status == "Hot" and reactor.heat.current < reactor.heat.low then
+    reactor.state = "Running"
   end
 
 end
 
 local function checkBatt()
   batCur = batt.getEnergyStored()
-  if state == "Running" and batCur > batUpper then -- Battery High
-    state = "Batt"
-  elseif state == "Batt" and batCur < batLower then -- Battery Low
-    state = "Running"
+  if reactor.state == "Running" and batCur > batUpper then -- Battery High
+    reactor.state = "Batt"
+  elseif reactor.state == "Batt" and batCur < batLower then -- Battery Low
+    reactor.state = "Running"
   end
 end
 
 local function flopReactor()
-  recFlop = not recFlop
-  cmpRedstone.setOutput(sides[env.redstoneSide], recFlop and 15 or 0)
+  reactor.tick = not reactor.tick
+  cmpRedstone.setOutput(sides[env.redstoneSide], reactor.tick and 15 or 0)
 end
 
--- Reset redstone to a default state
+-- Reset redstone to a default reactor.state
 cmpRedstone.setOutput(sides[env.redstoneSide], 0)
 
 initScreen()
---state = "Running"
+reactor.state = "Running"
 while true do
 
   checkHeat()
   checkBatt()
  
   -- Startup
-  if state == "Running" then
+  if reactor.state == "Running" then
     flopReactor()
   end
 
-  recOutput = cmpReactor.getReactorEUOutput() * 4
+  reactor.output = cmpReactor.getReactorEUOutput() * 4
 
   updateScreen()
   os.sleep(0.1)
