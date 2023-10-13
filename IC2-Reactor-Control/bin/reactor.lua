@@ -5,59 +5,59 @@ local os = require("os")
 local sides = require("sides")
 
 -- Early setup
-local env = misc.loadConfig("/etc/reactor.cfg")
+local env, reason = misc.loadConfig("/etc/reactor.cfg")
+if reason then error(reason) end
 
 -- Setup variable tables and components
 local gpu = component.gpu
 local termWidth, termHeight = gpu.getResolution()
 
-local reactor = {
-  reactor = nil,
-  redstone = component.proxy(env.redstoneAddress),
-  state = "Stopped",
-  tick = false,
-  output = 0,
-  heat = {
-    current = 0,
-    max = nil,
-    critical = nil,
-    limit = nil,
-    low = nil
-  },
-  protect = {
-    count = 0
+local reactor = {}
+do
+  local tmpreactor = nil
+  if component.isAvailable("reactor") then
+    tmpreactor = component.reactor
+  elseif component.isAvailable("reactor_chamber") then
+    tmpreactor = component.reactor_chamber
+  else
+    error("No reactors found")
+  end
+    
+  reactor = {
+    reactor = tmpreactor,
+    redstone = component.proxy(env.reactor.redstone.address),
+    state = "Stopped",
+    tick = false,
+    output = 0,
+    heat = {
+      current = 0,
+      max = tmpreactor.getMaxHeat(),
+      critical = tmpreactor.getMaxHeat() * env.reactor.limitCritical,
+      limit = tmpreactor.getMaxHeat() * env.reactor.limitUpper,
+      low = tmpreactor.getMaxHeat() * env.reactor.limitLower
+    },
+    protect = {
+      count = 0
+    }
   }
-}
 
--- Select reactor component and set dependent values
-if component.isAvailable("reactor") then
-  reactor.reactor = component.reactor
-elseif component.isAvailable("reactor_chamber") then
-  reactor.reactor = component.reactor_chamber
-else
-  error("No reactors found")
-end
-reactor.heat.max = reactor.reactor.getMaxHeat()
-reactor.heat.critical = reactor.reactor.getMaxHeat() * env.reactorCriticalLimit
-reactor.heat.limit = reactor.reactor.getMaxHeat() * env.reactorUpperLimit
-reactor.heat.low = reactor.reactor.getMaxHeat() * env.batteryLowerLimit
-
--- Check if Redstone is avaiable
-if reactor.redstone == nil then
-  error("Invalid or missing redstone I/O")
+  -- Check if Redstone is avaiable
+  if reactor.redstone == nil then
+    error("Invalid or missing redstone I/O")
+  end
 end
 
-local battery = {
-  battery = require("libBatt"),
-  current = 0,
-  max = nil,
-  high = nil,
-  low = nil
-}
--- Set dependent values and swtich output to RF
-battery.max = battery.battery.getMaxEnergyStored()
-battery.high = battery.battery.getMaxEnergyStored() * env.batteryUpperLimit
-battery.low = battery.battery.getMaxEnergyStored() * env.batteryLowerLimit
+local battery = {}
+do
+  tmpbatt = require("libBatt")
+  battery = {
+    battery = tmpbatt,
+    current = 0,
+    max = tmpbatt.getMaxEnergyStored(),
+    high = tmpbatt.getMaxEnergyStored() * env.battery.limitUpper,
+    low = tmpbatt.getMaxEnergyStored() * env.battery.limitLower
+  }
+end
 battery.battery.convert("RF")
 
 -- Screen related functions
@@ -103,11 +103,11 @@ local function updateScreen()
   setColor(0xFFFFFF, 0x000000)
 
   local safety = "Unknown"
-  if env.reactorOverheatProtection then
-    if reactor.protect.count >= env.reactorOverheatMaxCount - 2 then
+  if env.reactor.protection.enabled then
+    if reactor.protect.count >= env.reactor.protection.maxCount - 2 then
       gpu.setForeground(0xFF0000)
     end
-    safety = reactor.protect.count.."/"..env.reactorOverheatMaxCount
+    safety = reactor.protect.count.."/"..env.reactor.protection.maxCount
   else
     setColor(0xFF0000, 0x000000)
     safety = "Disabled"
@@ -139,7 +139,7 @@ end
 -- Reactor related functions
 
 local function reactorOutput(value)
-  reactor.redstone.setOutput(sides[env.redstoneSide], value)
+  reactor.redstone.setOutput(sides[env.reactor.redstone.side], value)
 end
 
 local function reactorTick()
@@ -163,7 +163,7 @@ end
 local function reactorHeatProtect()
   reactor.protect.count = reactor.protect.count + 1
 
-  if reactor.protect.count >= env.reactorOverheatMaxCount then
+  if reactor.protect.count >= env.reactor.protection.maxCount then
     criticalError("Abnormal temperature. Shutdown down for safety")
   end
 end
@@ -176,7 +176,7 @@ local function reactorHeatCheck()
     reactor.tick = false
     reactor.state = "Hot"
     -- Overheat Protection (if enabled)
-    if env.reactorOverheatProtection then reactorHeatProtect() end
+    if env.reactor.protection.enabled then reactorHeatProtect() end
   elseif reactor.state == "Hot" and reactor.heat.current < reactor.heat.low then
     reactor.state = "Running"
   end
