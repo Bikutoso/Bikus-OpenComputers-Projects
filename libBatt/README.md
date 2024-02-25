@@ -1,9 +1,14 @@
+
 # LibBatt
-Manage batteries without hassle.
+Manage batteries without hassle.<br>
+Supports RF/FE, IC2 EU, and GregTech CEu EU.
+Have mod specific functions for CEu, and IC2
 ## Variables
 * **list** - Table of all known batteries
 * **address** - Address of current primary battery
-## Functions
+## Generic Functions
+Functions in this section can be accessed by the module name directly. E.g. `batt.function()`
+___
 **refresh()**
 Rebuilds the table of known batteries and updates primary battery (if no user defined primary battery is defined) and returns the address of the primary battery <br>
 _NOTE: This should not be necessary in most cases, as it'll refresh automatically when needed_
@@ -63,11 +68,62 @@ print(batt.address) --"11111111-1111-1111-1111-111111111111"
 batt.setPrimary()
 print(batt.address) -- "00000000-0000-0000-0000-000000000000" (might not be the same as before)
 ```
+## IC2 Specific Functions
+Functions in this section require the IC submodule. E.g. `batt.IC.function()`
+___
 **GetSinkTier(address)**
-Returns the IC2 sink tier of the primary battery or the specified battery if given an address. <br>
-_NOTE: On RF based batteries this will return `0`_
+Returns the tier of the primary battery or the specified battery if given an address. <br>
+_NOTE: Returns `0` if not an IC2 battery_
 ```lua
 batt = require("libBatt")
 
 print(batt.GetSinkTier()) -- 3
 ```
+## GregTech CEu Specific Functions
+Functions in this section require the GT submodule. E.g. `batt.GT.function()`
+___
+**getInputAmperage(address)**
+Returns the input amperage of the primary battery or the specified battery if given an address.
+```lua
+batt = require("libBatt")
+
+print(batt.getInputAmperage()) -- 2
+```
+**getInputVoltage(address)**
+Returns the input voltage of the primary battery or the specified battery if given an address.
+```lua
+batt = require("libBatt")
+
+print(batt.getInputVoltage()) -- 32
+```
+**getInputPerSec(address)**
+Returns the input EU/s of the primary battery or the specified battery if given an address.
+```lua
+batt = require("libBatt")
+
+print(batt.getInputPerSec()) -- 32
+```
+**getOutputAmperage(address)**
+Returns the output amperage of the primary battery or the specified battery if given an address.
+```lua
+batt = require("libBatt")
+
+print(batt.getOutputAmperage()) -- 2
+```
+**getOutputVoltage(address)**
+Returns the output voltage of the primary battery or the specified battery if given an address.
+```lua
+batt = require("libBatt")
+
+print(batt.getOutputVoltage()) -- 32
+```
+**getOutputPerSec(address)**
+Returns the output EU/s of the primary battery or the specified battery if given an address.
+```lua
+batt = require("libBatt")
+
+print(batt.getOutputPerSec()) -- 32
+```
+**getCover(address, side)**
+Returns the cover on the specified side of the primary battery or the specified battery if given an address.
+
