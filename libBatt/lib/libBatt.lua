@@ -1,6 +1,11 @@
-local battery  = {}
 local component = require("component")
 
+-- Modules
+local battery  = {}
+battery.IC2 = {}
+battery.GT = {}
+
+-- Variables
 list = {}
 address = nil
 local manualAddress = false
@@ -46,7 +51,7 @@ local function selectBattery(addr)
 end
 
 local function convertPower(addr, power)
-  -- TODO: Make ratio user configurable, since CEu supports custom ones
+  -- TODO: Make ratio user configurable, since CEu supports user set ones
   if convertPowerType == "EU" and battery.list[addr] == "RF" then
     return power / 4
   elseif convertPowerType == "RF" and battery.list[addr] == "EU" then
@@ -54,6 +59,10 @@ local function convertPower(addr, power)
   end
 
   return power
+end
+
+local function isType(addr, type)
+  return battery.list[addr] == type and 1 or 0
 end
 
 -- Universal Functions
@@ -135,14 +144,62 @@ end
 -- Mod Specific Functions
 -- ======================
 
-function battery.getSinkTier(addr)
+-- IC2
+function battery.IC2.getSinkTier(addr)
   local proxy, addr = selectBattery(addr)
+  if not isType(addr, "IC") then return 0 end
+  
+  return proxy.getSinkTier()
+end
 
-  --default to 0 if a RF based compoment
-  if battery.list[addr] == "RF" then return 0 end
+-- GregTech CEu
+function battery.GT.getInputAmperage(addr)
+  local proxy, addr = selectBattery(addr)
+  if not isType(addr, "IC") then return 0 end
+  
+  return proxy.getInputAmperage()
+end
 
-  local tier = proxy.getSinkTier()
-  return tier
+function battery.GT.getInputPerSec(addr)
+  local proxy, addr = selectBattery(addr)
+  if not isType(addr, "IC") then return 0 end
+
+  return proxy.getInputPerSec()
+end
+
+function battery.GT.getInputVoltage(addr)
+  local proxy, addr = selectBattery(addr)
+  if not isType(addr, "IC") then return 0 end
+
+  return proxy.getInputVoltage()
+end
+
+function battery.GT.getOutputAmperage(addr)
+  local proxy, addr = selectBattery(addr)
+  if not isType(addr, "IC") then return 0 end
+
+  return proxy.getOutputAmperage()
+end
+
+function battery.GT.getOutputPerSec(addr)
+  local proxy, addr = selectBattery(addr)
+  if not isType(addr, "IC") then return 0 end
+
+  return proxy.getOutputPerSec()
+end
+
+function battery.GT.getOutputVoltage(addr)
+  local proxy, addr = selectBattery(addr)
+  if not isType(addr, "IC") then return 0 end
+
+  return proxy.getOutputVoltage()
+end
+
+function battery.GT.getCover(addr)
+  local proxy, addr = selectBattery(addr, side)
+  if not isType(addr, "IC") then return 0 end
+
+  return proxy.getCover(side)
 end
 
 battery.refresh()
