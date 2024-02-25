@@ -21,7 +21,7 @@ batt = require("libBatt")
 print(batt.getEnergyStored()) -- 100
 print(batt.getEnergyStored("11111111-1111-1111-1111-111111111111")) -- 2048
 ```
-**getEnergyMaxStored(address, side)**
+**getMaxEnergyStored(address, side)**
 Returns the max power level of the primary battery or the specified battery if given an address. <br>
 _NOTE: Not sure what `side` does, RF based batteries have them and it was easy to add an argument for_```lua
 ```lua

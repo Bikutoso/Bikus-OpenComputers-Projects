@@ -6,15 +6,25 @@ address = nil
 local manualAddress = false
 local convertPowerType = nil
 
+-- Power Types
+-- ===========
+-- RF: RF/FE
+-- GT: GregTech CEu
+-- IC: IndustrialCraft 2
+
 local getEnergyStoredMethods = {
   RF = "getEnergyStored",
-  EU = "getEnergy"
+  GT = "getEnergyStored",
+  IC = "getEnergy"
 }
 local getMaxEnergyStoredMethods = {
   RF = "getMaxEnergyStored",
+  GT = "getEnergyCapacity",
   EU = "getCapacity"
 }
 
+-- Interal Functions
+-- =================
 local function selectBattery(addr)
   --If address is slected use that, otherwise select the default
   local manAddr = true
@@ -36,6 +46,7 @@ local function selectBattery(addr)
 end
 
 local function convertPower(addr, power)
+  -- TODO: Make ratio user configurable, since CEu supports custom ones
   if convertPowerType == "EU" and battery.list[addr] == "RF" then
     return power / 4
   elseif convertPowerType == "RF" and battery.list[addr] == "EU" then
@@ -44,6 +55,9 @@ local function convertPower(addr, power)
 
   return power
 end
+
+-- Universal Functions
+-- ===================
 
 function battery.refresh()
   -- Reset
@@ -60,10 +74,13 @@ function battery.refresh()
   for addr, _ in pairs(devices) do
     devicemethods = component.methods(addr)
 
-    if devicemethods["getEnergyStored"] ~= nil then
+
+    if devicemethods["getMaxEnergyStored"] ~= nil then
       battery.list[addr] = "RF"
+    elseif devicemethods["getEnergyStored"] ~= nil then
+      battery.list[addr] = "GT"
     elseif devicemethods["getEnergy"] ~= nil then
-      battery.list[addr] = "EU"
+      battery.list[addr] = "IC"
     end
   end
 
@@ -114,6 +131,9 @@ function battery.getMaxEnergyStored(addr, side)
   local power = proxy[getMaxEnergyStoredMethods[battery.list[addr]]](side)
   return convertPower(addr, power)
 end
+
+-- Mod Specific Functions
+-- ======================
 
 function battery.getSinkTier(addr)
   local proxy, addr = selectBattery(addr)
