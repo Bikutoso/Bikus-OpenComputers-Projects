@@ -2,8 +2,6 @@ local component = require("component")
 
 -- Modules
 local battery  = {}
-battery.IC2 = {}
-battery.GT = {}
 
 -- Variables
 list = {}
@@ -23,25 +21,6 @@ local PowerTypes = {
 
 -- Interal Functions
 -- =================
-local function selectBattery(addr)
-  --If address is slected use that, otherwise select the default
-  local manAddr = true
-  if addr == nil then
-    addr = battery.address
-    manAddr = false
-  end
-  
-  local proxy = component.proxy(addr)
-  --Components could be out of date refresh
-  if not manAddr and proxy == nil then
-    addr = battery.refresh()
-    proxy = component.proxy(addr)
-  elseif proxy == nil then
-    error("Invalid address: "..addr)
-  end
-  
-  return proxy, addr
-end
 
 local function convertPower(addr, power)
   -- TODO: Make ratio user configurable, since CEu supports user set ones
@@ -77,6 +56,28 @@ local function getBattPower(addr, method)
     curCount = curCount + newCount
   end
   return curCount
+end
+
+-- Internal Module Functions
+
+function battery._selectBattery(addr)
+  --If address is slected use that, otherwise select the default
+  local manAddr = true
+  if addr == nil then
+    addr = battery.address
+    manAddr = false
+  end
+  
+  local proxy = component.proxy(addr)
+  --Components could be out of date refresh
+  if not manAddr and proxy == nil then
+    addr = battery.refresh()
+    proxy = component.proxy(addr)
+  elseif proxy == nil then
+    error("Invalid address: "..addr)
+  end
+  
+  return proxy, addr
 end
 
 -- Universal Functions
@@ -144,7 +145,7 @@ function battery.getUnit(addr)
 end
 
 function battery.getEnergyStored(addr, side)
-  local proxy, addr = selectBattery(addr)
+  local proxy, addr = battery._selectBattery(addr)
   local power = 0
   if component.methods(addr)["getBatteryCharge"] == nil then
     power = proxy[battery.list[addr][2]](side)
@@ -155,7 +156,7 @@ function battery.getEnergyStored(addr, side)
 end
 
 function battery.getMaxEnergyStored(addr, side)
-  local proxy, addr = selectBattery(addr)
+  local proxy, addr = battery._selectBattery(addr)
   local power = 0
   if component.methods(addr)["getMaxBatteryCharge"] == nil then
     power = proxy[battery.list[addr][3]](side)
@@ -164,68 +165,6 @@ function battery.getMaxEnergyStored(addr, side)
   end
 
   return convertPower(addr, power)
-end
-
--- Mod Specific Functions
--- ======================
-
--- IC2
-function battery.IC2.getSinkTier(addr)
-  local proxy, addr = selectBattery(addr)
-  if not isType(addr, "EU") then return 0 end
-  
-  return proxy.getSinkTier()
-end
-
--- GregTech CEu
--- TODO: Make Generic between CEu and GT5
-function battery.GT.getInputAmperage(addr)
-  local proxy, addr = selectBattery(addr)
-  if not isType(addr, "EU") then return 0 end
-  
-  return proxy.getInputAmperage()
-end
-
-function battery.GT.getInputPerSec(addr)
-  local proxy, addr = selectBattery(addr)
-  if not isType(addr, "EU") then return 0 end
-
-  return proxy.getInputPerSec()
-end
-
-function battery.GT.getInputVoltage(addr)
-  local proxy, addr = selectBattery(addr)
-  if not isType(addr, "EU") then return 0 end
-
-  return proxy.getInputVoltage()
-end
-
-function battery.GT.getOutputAmperage(addr)
- local proxy, addr = selectBattery(addr)
-  if not isType(addr, "EU") then return 0 end
-
-  return proxy.getOutputAmperage()
-end
-
-function battery.GT.getOutputPerSec(addr)
-  local proxy, addr = selectBattery(addr)
-  if not isType(addr, "EU") then return 0 end
-
-  return proxy.getOutputPerSec()
-end
-
-function battery.GT.getOutputVoltage(addr)
-  local proxy, addr = selectBattery(addr)
-  if not isType(addr, "EU") then return 0 end
-
-  return proxy.getOutputVoltage()
-end
-
-function battery.GT.getCover(addr)
-  local proxy, addr = selectBattery(addr, side)
-  if not isType(addr, "EU") then return 0 end
-
-  return proxy.getCover(side)
 end
 
 battery.refresh()
