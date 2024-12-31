@@ -11,21 +11,12 @@ address = nil
 local manualAddress = false
 local convertPowerType = nil
 
--- Power Types
--- ===========
--- RF: RF/FE
--- GT: GregTech CEu
--- IC: IndustrialCraft 2
-
-local getEnergyStoredMethods = {
-  RF = "getEnergyStored",
-  GT = "getEnergyStored",
-  IC = "getEnergy"
-}
-local getMaxEnergyStoredMethods = {
-  RF = "getMaxEnergyStored",
-  GT = "getEnergyCapacity",
-  EU = "getCapacity"
+-- Power Name, Unit, ShowPower Method, MaxPower Method
+local PowerTypes = {
+  ["Redstone Flux"] = {"RF", "getEnergyStored", "getMaxEnergyStored"},
+  ["GregTech 5 EU"] = {"EU", "getEUStored", "getEUMaxStored"},
+  ["GregTech CEu EU"] = {"EU", "getEnergyStored", "getEnergyCapacity"},
+  ["IndustrialCraft 2 EU"] = {"EU", "getEnergy", "getCapacity"}
 }
 
 -- Interal Functions
@@ -52,6 +43,7 @@ end
 
 local function convertPower(addr, power)
   -- TODO: Make ratio user configurable, since CEu supports user set ones
+  pType = battery.getUnit(addr)
   if convertPowerType == "EU" and battery.list[addr] == "RF" then
     return power / 4
   elseif convertPowerType == "RF" and battery.list[addr] == "EU" then
@@ -62,7 +54,22 @@ local function convertPower(addr, power)
 end
 
 local function isType(addr, type)
-  return battery.list[addr] == type and 1 or 0
+  return battery.getUnit(addr) == type and 1 or 0
+end
+
+-- HACK: With how stupid GT5 handles battery buffers count each battery
+local function getBattPower(addr, method)
+  local curCount = 0
+  local newCount = 0
+  for iBatt = 1, 16, 1 do
+    newCount = component.invoke(addr, method, iBatt)
+    if newCount == nil then
+      break
+    end
+
+    curCount = curCount + newCount
+  end
+  return curCount
 end
 
 -- Universal Functions
@@ -82,14 +89,11 @@ function battery.refresh()
   local devices = component.list()
   for addr, _ in pairs(devices) do
     devicemethods = component.methods(addr)
-
-
-    if devicemethods["getMaxEnergyStored"] ~= nil then
-      battery.list[addr] = "RF"
-    elseif devicemethods["getEnergyStored"] ~= nil then
-      battery.list[addr] = "GT"
-    elseif devicemethods["getEnergy"] ~= nil then
-      battery.list[addr] = "IC"
+    for _, pType in pairs(PowerTypes) do
+      if devicemethods[pType[2]] ~= nil and devicemethods[pType[3]] ~= nil then
+        battery.list[addr] = pType
+        break
+      end
     end
   end
 
@@ -97,25 +101,16 @@ function battery.refresh()
     battery.address, _ = next(battery.list)
     if battery.address == nil then error("No batteries connected") end
   end
-  
+
+  battery.convert(battery.getUnit(battery.address))
   return battery.address
 end
 
 function battery.convert(type)
   if type == "RF" then convertPowerType = "RF"
-  elseif type == "EU" then convertPowerType = "EU"
+  elseif type == "EU" ~= nil then convertPowerType = "EU"
   else convertPowerType = nil end
   return convertPowerType
-end
-
-function battery.getUnit(addr)
-  if convertPowerType ~= nil then
-    return convertPowerType
-  end
-
-  local _, addr = selectBattery(addr)
-  return battery.list[addr]
-  
 end
 
 function battery.setPrimary(addr)
@@ -129,15 +124,30 @@ function battery.setPrimary(addr)
   return battery.address
 end
 
+function battery.getUnit(addr)
+  return battery.list[addr][1]
+end
+
 function battery.getEnergyStored(addr, side)
   local proxy, addr = selectBattery(addr)
-  local power = proxy[getEnergyStoredMethods[battery.list[addr]]](side)
+  local power = 0
+  if component.methods(addr)["getBatteryCharge"] == nil then
+    power = proxy[battery.list[addr][2]](side)
+  else
+    power = getBattPower(addr, "getBatteryCharge")
+  end
   return convertPower(addr, power)
 end
 
 function battery.getMaxEnergyStored(addr, side)
   local proxy, addr = selectBattery(addr)
-  local power = proxy[getMaxEnergyStoredMethods[battery.list[addr]]](side)
+  local power = 0
+  if component.methods(addr)["getMaxBatteryCharge"] == nil then
+    power = proxy[battery.list[addr][3]](side)
+  else
+    power = getBattPower(addr, "getMaxBatteryCharge")
+  end
+
   return convertPower(addr, power)
 end
 
@@ -153,44 +163,45 @@ function battery.IC2.getSinkTier(addr)
 end
 
 -- GregTech CEu
+-- TODO: Make Generic between CEu and GT5
 function battery.GT.getInputAmperage(addr)
   local proxy, addr = selectBattery(addr)
-  if not isType(addr, "IC") then return 0 end
+  if not isType(addr, "CE") then return 0 end
   
   return proxy.getInputAmperage()
 end
 
 function battery.GT.getInputPerSec(addr)
   local proxy, addr = selectBattery(addr)
-  if not isType(addr, "IC") then return 0 end
+  if not isType(addr, "CE") then return 0 end
 
   return proxy.getInputPerSec()
 end
 
 function battery.GT.getInputVoltage(addr)
   local proxy, addr = selectBattery(addr)
-  if not isType(addr, "IC") then return 0 end
+  if not isType(addr, "CE") then return 0 end
 
   return proxy.getInputVoltage()
 end
 
 function battery.GT.getOutputAmperage(addr)
-  local proxy, addr = selectBattery(addr)
-  if not isType(addr, "IC") then return 0 end
+ local proxy, addr = selectBattery(addr)
+  if not isType(addr, "CE") then return 0 end
 
   return proxy.getOutputAmperage()
 end
 
 function battery.GT.getOutputPerSec(addr)
   local proxy, addr = selectBattery(addr)
-  if not isType(addr, "IC") then return 0 end
+  if not isType(addr, "CE") then return 0 end
 
   return proxy.getOutputPerSec()
 end
 
 function battery.GT.getOutputVoltage(addr)
   local proxy, addr = selectBattery(addr)
-  if not isType(addr, "IC") then return 0 end
+  if not isType(addr, "CE") then return 0 end
 
   return proxy.getOutputVoltage()
 end
