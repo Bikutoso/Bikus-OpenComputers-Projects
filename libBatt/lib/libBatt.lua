@@ -9,7 +9,8 @@ battery.GT = {}
 list = {}
 address = nil
 local manualAddress = false
-local convertPowerType = nil
+local PowerType = nil
+local PowerRatio = 4
 
 -- Power Name, Unit, StoredPower, MaxPower
 local PowerTypes = {
@@ -45,10 +46,10 @@ end
 local function convertPower(addr, power)
   -- TODO: Make ratio user configurable, since CEu supports user set ones
   pType = battery.getUnit(addr)
-  if convertPowerType == "EU" and battery.list[addr][1] == "RF" then
-    return power / 4
-  elseif convertPowerType == "RF" and battery.list[addr][1] == "EU" then
-    return power * 4
+  if PowerType == "EU" and battery.list[addr][1] == "RF" then
+    return power / PowerRatio
+  elseif PowerType == "RF" and battery.list[addr][1] == "EU" then
+    return power * PowerRatio
   end
 
   return power
@@ -108,14 +109,23 @@ function battery.refresh()
     if battery.address == nil then error("No batteries connected") end
   end
 
-  battery.convert(battery.getUnit(battery.address))
+  battery.setPowerType(battery.getUnit(battery.address))
   return battery.address
 end
 
-function battery.convert(type)
-  if type == "RF" then convertPowerType = "RF"
-  elseif type == "EU" then convertPowerType = "EU" end
-  return convertPowerType
+function battery.setPowerType(type)
+  if type == "RF" then PowerType = "RF"
+  elseif type == "EU" then PowerType = "EU" end
+  return PowerType
+end
+
+function battery.setPowerRatio(ratio)
+  local newRatio = tonumber(ratio)
+  
+  if newRatio ~= nil or newRatio ~= 0 then
+    PowerRatio = ratio
+  end
+  return PowerRatio
 end
 
 function battery.setPrimary(addr)
