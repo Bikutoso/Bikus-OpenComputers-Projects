@@ -11,12 +11,13 @@ address = nil
 local manualAddress = false
 local convertPowerType = nil
 
--- Power Name, Unit, ShowPower Method, MaxPower Method
+-- Power Name, Unit, StoredPower, MaxPower
 local PowerTypes = {
   ["Redstone Flux"] = {"RF", "getEnergyStored", "getMaxEnergyStored"},
   ["GregTech 5 EU"] = {"EU", "getEUStored", "getEUMaxStored"},
   ["GregTech CEu EU"] = {"EU", "getEnergyStored", "getEnergyCapacity"},
-  ["IndustrialCraft 2 EU"] = {"EU", "getEnergy", "getCapacity"}
+  ["IndustrialCraft 2 EU"] = {"EU", "getEnergy", "getCapacity"},
+  ["IndustrialCraft 2 EU (GTNH)"] = {"EU", "getStored", "getCapacity"}
 }
 
 -- Interal Functions
@@ -44,9 +45,9 @@ end
 local function convertPower(addr, power)
   -- TODO: Make ratio user configurable, since CEu supports user set ones
   pType = battery.getUnit(addr)
-  if convertPowerType == "EU" and battery.list[addr] == "RF" then
+  if convertPowerType == "EU" and battery.list[addr][1] == "RF" then
     return power / 4
-  elseif convertPowerType == "RF" and battery.list[addr] == "EU" then
+  elseif convertPowerType == "RF" and battery.list[addr][1] == "EU" then
     return power * 4
   end
 
@@ -54,7 +55,12 @@ local function convertPower(addr, power)
 end
 
 local function isType(addr, type)
-  return battery.getUnit(addr) == type and 1 or 0
+  if battery.getUnit(addr) == type then
+    print("true")
+    return true
+  end
+  print("false")
+  return false
 end
 
 -- HACK: With how stupid GT5 handles battery buffers count each battery
@@ -108,8 +114,7 @@ end
 
 function battery.convert(type)
   if type == "RF" then convertPowerType = "RF"
-  elseif type == "EU" ~= nil then convertPowerType = "EU"
-  else convertPowerType = nil end
+  elseif type == "EU" then convertPowerType = "EU" end
   return convertPowerType
 end
 
@@ -157,7 +162,7 @@ end
 -- IC2
 function battery.IC2.getSinkTier(addr)
   local proxy, addr = selectBattery(addr)
-  if not isType(addr, "IC") then return 0 end
+  if not isType(addr, "EU") then return 0 end
   
   return proxy.getSinkTier()
 end
@@ -166,49 +171,49 @@ end
 -- TODO: Make Generic between CEu and GT5
 function battery.GT.getInputAmperage(addr)
   local proxy, addr = selectBattery(addr)
-  if not isType(addr, "CE") then return 0 end
+  if not isType(addr, "EU") then return 0 end
   
   return proxy.getInputAmperage()
 end
 
 function battery.GT.getInputPerSec(addr)
   local proxy, addr = selectBattery(addr)
-  if not isType(addr, "CE") then return 0 end
+  if not isType(addr, "EU") then return 0 end
 
   return proxy.getInputPerSec()
 end
 
 function battery.GT.getInputVoltage(addr)
   local proxy, addr = selectBattery(addr)
-  if not isType(addr, "CE") then return 0 end
+  if not isType(addr, "EU") then return 0 end
 
   return proxy.getInputVoltage()
 end
 
 function battery.GT.getOutputAmperage(addr)
  local proxy, addr = selectBattery(addr)
-  if not isType(addr, "CE") then return 0 end
+  if not isType(addr, "EU") then return 0 end
 
   return proxy.getOutputAmperage()
 end
 
 function battery.GT.getOutputPerSec(addr)
   local proxy, addr = selectBattery(addr)
-  if not isType(addr, "CE") then return 0 end
+  if not isType(addr, "EU") then return 0 end
 
   return proxy.getOutputPerSec()
 end
 
 function battery.GT.getOutputVoltage(addr)
   local proxy, addr = selectBattery(addr)
-  if not isType(addr, "CE") then return 0 end
+  if not isType(addr, "EU") then return 0 end
 
   return proxy.getOutputVoltage()
 end
 
 function battery.GT.getCover(addr)
   local proxy, addr = selectBattery(addr, side)
-  if not isType(addr, "IC") then return 0 end
+  if not isType(addr, "EU") then return 0 end
 
   return proxy.getCover(side)
 end
