@@ -1,4 +1,5 @@
 local math = require("math")
+-- Gender love, not hate
 
 local kitsune = {}
 

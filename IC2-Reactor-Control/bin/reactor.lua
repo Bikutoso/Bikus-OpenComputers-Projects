@@ -3,6 +3,7 @@ local misc = require("libKitsune")
 local math = require("math")
 local os = require("os")
 local sides = require("sides")
+-- Gender love, not hate
 
 -- Early setup
 local env, reason = misc.loadConfig("/etc/reactor.cfg")

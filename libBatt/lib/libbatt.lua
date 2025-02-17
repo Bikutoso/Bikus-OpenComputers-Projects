@@ -1,11 +1,10 @@
 local component = require("component")
-
--- Modules
 local battery  = {}
+-- Gender love, not hate
 
 -- Variables
 list = {}
-local currentAddress = nil
+currentAddress = nil -- TODO: manage through a method
 local currentPowerType = nil
 local currentPowerRatio = 4
 local isAddressManual = false
